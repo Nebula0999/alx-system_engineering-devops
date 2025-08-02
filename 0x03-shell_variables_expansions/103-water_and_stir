@@ -1,2 +1,2 @@
 #!/bin/bash
-echo "obase=7; $(( $((2#$WATER)) + $((6#$STIR)) ))" | bc
+echo "ibase=5; $WATER" | tr -d '\n' | xargs -I{} bash -c "W=\$(echo {} | tr -d '\n' | xargs printf '%d\n'); echo \"ibase=6; \$STIR\" | tr -d '\n' | xargs -I@@ bash -c \"S=\\\$(echo @@ | xargs printf '%d\n'); printf '%s\n' \$((W+S)) | xargs printf '%o\n'\""
