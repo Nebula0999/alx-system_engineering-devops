@@ -1,6 +1,6 @@
 ## This is a minimal three-server layout:
 
-**IMAGE** https://imgur.com/a/SGtsOhk
+**IMAGE** https://imgur.com/a/hcF9Lxr
 
 Server1 = HAProxy (LB); Server2 = Nginx web server; Server3 = App server which also hosts MySQL Primary.
 
