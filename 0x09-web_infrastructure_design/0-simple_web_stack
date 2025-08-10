@@ -1,6 +1,6 @@
 ## One‑server web infrastructure for www.foobar.com — whiteboard design
 
-Image https://imgur.com/a/ZXCB9Zd
+**Image** https://imgur.com/a/ZXCB9Zd
 
 # Scenario : A user opens their browser and types https://www.foobar.com (or clicks a link). The browser must find where www.foobar.com lives and then ask that machine for the website pages.
 
