@@ -1,0 +1,120 @@
+## One‑server web infrastructure for www.foobar.com — whiteboard design
+
+Image https://imgur.com/a/ZXCB9Zd
+
+# Scenario : A user opens their browser and types https://www.foobar.com (or clicks a link). The browser must find where www.foobar.com lives and then ask that machine for the website pages.
+
+## High-level components (all on one server)
+
+- **1 Server** (single machine / VM / droplet) — IP: 8.8.8.8.
+
+- **Domain name**: foobar.com with a www** A record** pointing to 8.8.8.8 (www.foobar.com -> A -> 8.8.8.8).
+
+# -Web server: .
+
+- **x** — listens on ports 80 (HTTP) and 443 (HTTPS), handles incoming HTTP requests, static files, and reverse-proxies to the application server.
+
+- **Application server**: e.g. PHP-FPM (or Gunicorn/uWSGI for Python, Node.js for JS). This executes the site code.
+
+- **Application files**: The codebase, e.g. /var/www/foobar.com/ (HTML, PHP/Python/JS, templates, assets).
+
+- **Database**: MySQL running locally (127.0.0.1:3306) storing persistent data.
+
+## Request flow
+
+DNS resolution: The browser asks a DNS resolver "what is www.foobar.com?" The DNS reply contains the A record 8.8.8.8.
+
+TCP connection: Browser opens a TCP connection to 8.8.8.8 on port 443 (HTTPS) or 80 (HTTP).
+
+TLS (if HTTPS): If HTTPS, a TLS handshake happens (certificate, SNI, keys) before any HTTP payload.
+
+HTTP request: Browser sends GET / HTTP/1.1 with headers (Host: www.foobar.com). Nginx receives it.
+
+Nginx handling: Nginx checks if the request matches a static file (/assets/*). If static -> serve file. Otherwise, Nginx forwards the request to the application server (e.g. via unix socket or 127.0.0.1:9000).
+
+Application execution: Application server (PHP-FPM) runs the app code from /var/www/foobar.com/, executes logic, and if needed issues SQL queries to MySQL.
+
+Database: MySQL responds with data rows. App builds HTML/JSON using that data.
+
+Response back: The application returns rendered content to Nginx, Nginx sends the HTTP response back over the TCP/TLS connection to the user’s browser.
+
+Browser renders: Browser receives HTML/CSS/JS, fetches additional assets, and renders the page for the user.
+
+# What is a server?
+
+- A server is a machine (physical hardware or virtual machine) that runs software to provide services to clients across a network.
+
+# What is the role of the domain name?
+
+- A domain name (foobar.com) is a human-friendly identifier that maps to an IP address via DNS.
+
+# What type of DNS record is www in www.foobar.com?
+
+- In this setup www** is an A record** that points directly to the IP 8.8.8.8.
+
+# What is the role of the web server (Nginx)?
+
+- Terminates TCP and TLS connections (ports 80/443).
+
+- Serves static files (images, CSS, JS) quickly.
+
+- Acts as a reverse proxy to the application server for dynamic requests.
+
+- Handles caching, gzip, HTTP headers, redirects, and connection management
+
+# What is the role of the application server?
+
+- The application server (PHP-FPM, Gunicorn, uWSGI, Node.js) executes the website’s server-side code (business logic, templating, session handling), interacts with the database, and returns content to the web server.
+
+# What is the role of the database (MySQL)?
+
+- MySQL stores persistent structured data: users, posts, transactions, configuration, etc.
+
+# What is the server using to communicate with the user's computer?
+
+- Networking stack: TCP/IP (Internet Protocol) carrying HTTP or HTTPS (HTTP over TLS). Typical ports:
+
+- 80 for HTTP (unencrypted)
+
+- 443 for HTTPS (encrypted TLS)
+The browser performs DNS → TCP → TLS (if HTTPS) → HTTP request, and the server replies over the same TCP connection.
+
+## Problems/Limitations
+
+# 1 Single Point of Failure (SPOF)
+
+- If the single server crashes (hardware failure, OS bug, kernel panic, network outage, or host maintenance), the site becomes unreachable.
+
+- Mitigations: Create a second server and load-balance; use managed hosting with high-availability; keep automated backups and snapshots; enable monitoring and alerts.
+
+# 2 Downtime during maintenance / deployments
+
+- Deploying new code or restarting services (MySQL, PHP-FPM, Nginx) can cause user-visible downtime if the restart kills active connections or if the server must reboot.
+
+- Mitigations (single-server options):
+
+Use graceful reloads (nginx -s reload, systemctl reload php8.1-fpm) to avoid dropping connections.
+
+Use atomic deploys (symlink swap: releases + current) so rollback is quick.
+
+# 3 Cannot scale for high traffic
+
+- A single machine has finite CPU, RAM, network, and MySQL I/O. When load exceeds capacity, performance degrades or the server crashes.
+
+- Mitigations:
+
+Vertical scaling: upgrade the server (bigger VM) — short-term fix.
+
+Caching: use reverse proxy caching, application-level caches, or a CDN for static assets to reduce load.
+
+Horizontal scaling: move to multiple app servers behind a load balancer and use a separate DB server (requires more than one server).
+
+Read replicas for MySQL to offload reads (requires additional DB hosts).
+
+# 4 Other concerns
+
+- Backup & disaster recovery: If disk dies and no backups exist, data is lost. Use regular backups and offsite storage.
+
+- Security: Exposing many services on one host increases attack surface. Keep software patched, use firewalls, principle of least privilege.
+
+- Resource contention: Web server, app server, and DB compete for CPU/memory — one noisy process can affect others.
